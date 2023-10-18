@@ -59,7 +59,9 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
 
+    const serviceCollection = client.db("enaEmaTech").collection("services");
     const clientsMessageCollection = client.db("enaEmaTech").collection("clientsMessage");
+    const resumeSubmission = client.db("enaEmaTech").collection("resumeSubmission");
     const userCollection = client.db("enaEmaTech").collection("users");
     const reviewsCollection = client.db("enaEmaTech").collection("reviews");
     const sendMessagesCollection = client.db("enaEmaTech").collection("sendMessages");
@@ -89,12 +91,12 @@ async function run() {
 
     // Client Message manage 
 
-      app.delete("/clients-message/:id", verifyJWT, verifyAdmin, async (req, res) => {
-        const id = req.params.id;
-        const filter = { _id: new ObjectId(id) }
-        const result = await clientsMessageCollection.deleteOne(filter);
-        res.send(result);
-      })  
+    app.delete("/clients-message/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const result = await clientsMessageCollection.deleteOne(filter);
+      res.send(result);
+    })
 
     app.post("/clients-message", async (req, res) => {
       const newMessage = req.body;
@@ -119,15 +121,77 @@ async function run() {
 
 
     app.patch('/message/confirm/:id', verifyJWT, verifyAdmin, async (req, res) => {
-      const newSendReq = req.body; 
-      const id = req.params.id; 
+      const newSendReq = req.body;
+      const id = req.params.id;
       const filter = { _id: new ObjectId(id) }
 
-    
 
+      try {
+        if (newSendReq && id) {
+          const emailInfo = {
+            from: "support@enaema.com",   // Your email address
+            to: newSendReq.receiver, // Client's email address
+            subject: newSendReq.subject,
+            text: newSendReq.message,
+          };
+          // console.log(emailInfo);
+          await transporter.sendMail(emailInfo);
 
+          const messageUpdate = {
+            $set: {
+              status: "Opened"
+            }
+          };
+          const result = await clientsMessageCollection.updateOne(filter, messageUpdate);
+          console.log(result);
+          res.send(result)
 
+          // res.status(200).json({ message: 'Message confirmed and email sent!' });
 
+        }
+      }
+      // Send a confirmation email to the client
+      catch (error) {
+        console.log(error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
+      
+    // Resume Submission related APIS 
+
+    app.delete("/resume-submission/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const result = await resumeSubmission.deleteOne(filter);
+      res.send(result);
+    })
+
+    app.post("/resume-submission", async (req, res) => {
+      const newMessage = req.body;
+      const result = await resumeSubmission.insertOne(newMessage);
+      res.send(result);
+
+    })
+
+    app.get("/resume-submission", verifyJWT, verifyAdmin, async (req, res) => {
+      const result = await resumeSubmission.find({}).toArray();
+      res.send(result);
+
+    })
+
+    app.get("/resume-submission/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.body;
+      const query = { _id: new ObjectId(id) }
+      const result = await resumeSubmission.deleteOne(query)
+      res.send(result)
+
+    })
+
+    app.patch('/resume/confirm/:id', verifyJWT, verifyAdmin, async (req, res) => {
+      const newSendReq = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
 
 
       try {
